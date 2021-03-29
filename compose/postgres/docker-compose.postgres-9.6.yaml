@@ -1,0 +1,71 @@
+version: '3.7'
+services: 
+  postgres:
+    image: sameersbn/postgresql:12-20200524
+    environment:
+      - POSTGRES_PASSWORD=CLOBI2021
+      - POSTGRES_USER=postgres
+      - POSTGRES_DB=scrapper
+    ports:
+      - 5432:5432
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks: 
+      - share-network
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.3.2
+    ports:
+      - 9300:9300
+      - 9200:9200
+    environment:
+      - http.cors.enabled=true
+      - http.cors.allow-origin=*
+      - http.cors.allow-methods=OPTIONS,HEAD,GET,POST,PUT,DELETE
+      - http.cors.allow-headers=X-Requested-With,X-Auth-Token,Content-Type,Content-Length,Authorization
+      - transport.host=127.0.0.1
+      - cluster.name=docker-cluster
+      - discovery.type=single-node
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    networks:
+      - share-network
+  kibana:
+    image: docker.elastic.co/kibana/kibana:7.3.2
+    ports:
+      - 5601:5601
+    networks:
+      - share-network
+    depends_on:
+      - elasticsearch
+  logstash:
+    build: 
+      dockerfile: ./Dockerfile
+      context: ./
+    environment:
+      - LOGSTASH_JDBC_URL=jdbc:postgresql://3.18.215.102:1033/scrapper
+      - LOGSTASH_JDBC_DRIVER=org.postgresql.Driver
+      - LOGSTASH_JDBC_DRIVER_JAR_LOCATION=/usr/share/logstash/logstash-core/lib/jars/postgresql.jar
+      - LOGSTASH_JDBC_USERNAME=postgres
+      - LOGSTASH_JDBC_PASSWORD=passwordnyaPostgres
+      - LOGSTASH_ELASTICSEARCH_HOST=http://elasticsearch:9200
+    volumes: 
+      - ./logstash/freund/ventas/pineline-postgres.conf:/usr/share/logstash/pipeline/pineline-postgres.conf
+      #- ./logstash/freund/ventas/productos-mas-vendidos.conf:/usr/share/logstash/pipeline/productos-mas-vendidos.conf
+      #- ./logstash/freund/ventas/productos-mayor-margen.conf:/usr/share/logstash/pipeline/productos-mayor-margen.conf
+      #- ./logstash/freund/ventas/ventas-depto.conf:/usr/share/logstash/pipeline/ventas-depto.conf
+
+    ports:
+      - 9600:9600
+      - 5044:5044
+    networks:
+      - share-network
+    depends_on:
+      - elasticsearch
+      - kibana
+      - postgres
+volumes:
+  elasticsearch_data:
+  postgres_data:
+networks:
+  share-network:
